@@ -1,0 +1,14 @@
+name: nf-biohansel-snippy-comparison-1.0.0
+channels:
+  - conda-forge
+  - bioconda
+  - defaults
+dependencies:
+  - sra-tools
+  - bbmap
+  - snippy=4.4.1
+  - gcc_linux-64
+  - python=3.7.3
+  - pip:
+    - click
+    - bio-hansel==2.4.0

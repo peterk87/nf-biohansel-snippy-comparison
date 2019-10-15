@@ -1,0 +1,7 @@
+.nextflow.log*
+.nextflow/
+*.swp
+results/
+work/
+pipeline_info/
+

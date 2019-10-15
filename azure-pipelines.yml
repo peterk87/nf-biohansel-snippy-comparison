@@ -1,0 +1,31 @@
+pool:
+  vmImage: 'ubuntu-16.04'
+
+steps:
+- script: printenv
+- bash: echo "##vso[task.prependpath]$CONDA/bin"
+  displayName: Add conda to PATH
+- bash: sudo chown -R $USER /usr/share/miniconda
+  displayName: Take ownership of conda installation
+- script: java -version
+  displayName: Java version
+- script: |
+    conda config --add channels defaults
+    conda config --add channels bioconda
+    conda config --add channels conda-forge
+  displayName: Configure conda channels
+- script: |
+    conda install conda=4.7.11 -y
+  displayName: Update Conda
+- script: |
+    wget https://github.com/nextflow-io/nextflow/releases/download/v19.09.0-edge/nextflow
+    chmod +x nextflow
+    ./nextflow
+    ./nextflow --version
+  displayName: Install Nextflow
+- script: |
+    ./nextflow run main.nf --help
+  displayName: Print help message for workflow
+- script: |
+    ./nextflow run main.nf -profile conda,test
+  displayName: Run workflow on test data
