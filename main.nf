@@ -165,6 +165,7 @@ process BIOHANSEL {
   publishDir "$outdir/biohansel/$accession", mode: 'copy', pattern: "*.tsv"
 
   input:
+    val mincov
     tuple val(scheme),
           path(scheme_fasta),
           val(accession),
@@ -174,6 +175,7 @@ process BIOHANSEL {
   output:
     tuple val(scheme),
           val(accession),
+          path(scheme_fasta),
           path(detailed_report),
           path(summary_report), emit: 'results'
     tuple val(scheme),
@@ -192,6 +194,7 @@ process BIOHANSEL {
   hansel \\
     -v \\
     -t ${task.cpus} \\
+    --min-kmer-freq $mincov \\
     -s $scheme_fasta \\
     -D reads/ \\
     -o $summary_report \\
@@ -202,9 +205,10 @@ process BIOHANSEL {
 
 process SNIPPY {
   tag "$accession"
-  publishDir "$outdir/snippy/$accession", mode: 'symlink'
+  publishDir "$outdir/snippy", mode: 'symlink'
 
   input:
+    val mincov
     tuple val(scheme),
           path(scheme_fasta),
           val(accession),
@@ -229,10 +233,38 @@ process SNIPPY {
     --outdir $accession \\
     --cpus ${task.cpus} \\
     --ram ${task.memory.toGiga()} \\
+    --mincov $mincov \\
     --R1 $reads1 \\
     --R2 $reads2 \\
     --ref $ref_genbank \\
     --tmpdir ./
+  """
+}
+
+
+process COMPARE {
+  tag "$accession"
+  publishDir "$outdir/compare", pattern: "*.csv", mode: 'copy'
+
+  input:
+    tuple val(scheme), 
+          val(accession), 
+          path(scheme_fasta),
+          path(bh_results), 
+          path(bh_summary),
+          path('snippy')
+  output:
+    path(csv)
+
+  script:
+  csv = "${accession}-${scheme}.csv"
+  """
+  compare_snippy_biohansel.py \\
+    --bam-file snippy/${accession}.bam \\
+    --biohansel-results $bh_results \\
+    --snippy-consensus-subs-fa snippy/${accession}.consensus.subs.fa \\
+    --scheme-fasta $scheme_fasta \\
+    --output-csv $csv
   """
 }
 
@@ -266,8 +298,14 @@ workflow {
     .dump(tag: "ch_accessions")
     .set { ch_accessions }
 
-  ch_accessions | FASTERQ_DUMP | (SNIPPY & BIOHANSEL)
+  mincov = Channel.value(mincovs.min())
 
+  ch_accessions | FASTERQ_DUMP
+  SNIPPY(mincov, FASTERQ_DUMP.out)
+  BIOHANSEL(mincov, FASTERQ_DUMP.out)
+
+  BIOHANSEL.out.results.join(SNIPPY.out.results, by: [0,1]) \
+    | COMPARE
 
   BIOHANSEL.out.trace.mix(SNIPPY.out.trace)
     .collectFile() { scheme, samples, threads, type, trace_file, reads1, reads2 ->

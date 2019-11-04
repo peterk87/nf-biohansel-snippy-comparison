@@ -6,9 +6,12 @@ channels:
 dependencies:
   - sra-tools
   - bbmap
-  - snippy=4.4.1
+  - snippy=4.4.5
   - gcc_linux-64
   - python=3.7.3
+  - pysam
+  - biopython
   - pip:
     - click
     - bio-hansel==2.4.0
+    - pandas
